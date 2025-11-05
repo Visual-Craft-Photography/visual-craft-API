@@ -1,0 +1,22 @@
+{
+  "name": "visual-craft-backend-pro",
+  "private": true,
+  "version": "2.0.1",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "better-sqlite3": "^9.4.5",
+    "cors": "^2.8.5",
+    "date-fns": "^3.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "googleapis": "^132.0.0",
+    "ics": "^3.7.6",
+    "jsonwebtoken": "^9.0.2",
+    "nanoid": "^5.0.7",
+    "nodemailer": "^6.9.13"
+  }
+}
