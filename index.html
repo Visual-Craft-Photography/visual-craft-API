@@ -1,1 +1,359 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Visual Craft</title><link rel="manifest" href="/manifest.webmanifest"><style>body{margin:0;font-family:Georgia,serif;background:#f6f6f6;color:#1a1a1a}</style></head><body><div id="root"></div><script type="module" src="/src/main.jsx"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Visual Craft Photography</title>
+
+    <!-- PWA (optional) -->
+    <link rel="manifest" href="/manifest.json"/>
+    <meta name="theme-color" content="#000000"/>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/styles.css"/>
+    <style>
+      html,body,#root{height:100%;margin:0}
+      body{font-family:Georgia,Times,serif;background:#fff;color:#111}
+      .splash-bg{min-height:100vh;background-image:url('/images/splash-bg.jpg');background-size:cover;background-position:center;position:relative}
+      .center-card{position:absolute;top:44%;left:50%;transform:translate(-50%,-50%);width:min(92vw,700px);padding:8px}
+      .diag{font:14px/1.4 Georgia,serif;background:#f7f7f7;border-bottom:1px solid #e5e5e5;padding:10px 12px;color:#333}
+      .ok{color:#090}.bad{color:#900}
+      .a-card{background:rgba(255,255,255,.55);border:2px solid rgba(255,255,255,.2);border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:24px}
+      .btn{border:none;border-radius:12px;padding:14px 22px;min-height:48px;font-size:16px;cursor:pointer}
+      .btn-dark{background:#1a1a1a;color:#fff}
+      .btn-mid{background:#4d4d4d;color:#fff}
+      .btn-ghost{background:transparent;color:#1a1a1a;border:2px solid #1a1a1a}
+      .grid{display:grid;gap:12px}
+      .nav{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid #eee;position:sticky;top:0;background:#fff;z-index:10}
+      .container{max-width:900px;margin:0 auto;padding:16px 16px 24px}
+      .tile{display:flex;align-items:center;gap:12px;text-align:left;padding:12px;border-radius:12px;border:1px solid #e5e5e5;background:#fff}
+      .tile img{width:72px;height:48px;object-fit:cover;border-radius:8px;border:1px solid #eee}
+    </style>
+
+    <!-- React only (we use a tiny built-in router) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <!-- Google Maps Places (address autocomplete) -->
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=YOUR_MAPS_KEY&libraries=places&callback=initPlaces"
+      async defer></script>
+  </head>
+  <body>
+    <!-- Diagnostics -->
+    <div class="diag" id="diag">Diagnostics loading…</div>
+
+    <!-- Root -->
+    <div id="root"><div style="padding:16px;color:#666">Loading Visual Craft…</div></div>
+
+    <!-- Base URL for your API; same-origin since this is the Render site -->
+    <script>window.__API_BASE__ = "";</script>
+
+    <!-- Error strip -->
+    <script>
+      window.addEventListener('error', (e) => {
+        const el = document.createElement('div');
+        el.style.cssText = "position:fixed;left:0;right:0;bottom:0;background:#fee;border-top:1px solid #f99;color:#900;padding:8px;font:14px/1.4 Georgia,serif;z-index:99999;white-space:pre-wrap";
+        el.textContent = "JS Error: " + (e.message || e.error) + (e.filename ? " @ " + e.filename + ":" + e.lineno : "");
+        document.body.appendChild(el);
+      });
+    </script>
+
+    <!-- Google Places initializer -->
+    <script>
+      function initPlaces(){
+        const input = document.getElementById('addr-input');
+        if (!input || !window.google || !google.maps?.places) return;
+        const ac = new google.maps.places.Autocomplete(input, { fields:['formatted_address','geometry'] });
+        ac.addListener('place_changed', ()=>{
+          const p = ac.getPlace();
+          if (!p || !p.geometry) return;
+          const lat = p.geometry.location.lat();
+          const lng = p.geometry.location.lng();
+          const label = p.formatted_address || input.value;
+          window.__placeSelection__ = { label, lat, lng };
+          input.value = label;
+        });
+      }
+    </script>
+
+    <!-- App -->
+    <script>
+      const React = window.React;
+      const ReactDOM = window.ReactDOM;
+      const API = window.__API_BASE__ ?? "";
+
+      /* tiny hash router (no external lib) */
+      function useHashRoute(){
+        const [route,setRoute] = React.useState(()=>location.hash.replace(/^#/, '') || '/');
+        React.useEffect(()=>{
+          const onHash = ()=>setRoute(location.hash.replace(/^#/, '') || '/');
+          window.addEventListener('hashchange', onHash);
+          return ()=>window.removeEventListener('hashchange', onHash);
+        },[]);
+        return [route, (to)=>{ location.hash = to; }];
+      }
+
+      /* UI helpers */
+      function Card(p){ return React.createElement('div',{className:'a-card',style:p.style},p.children); }
+      function Button({variant='dark',style,onClick,children}){
+        const cls = variant==='dark'?'btn btn-dark':variant==='mid'?'btn btn-mid':'btn btn-ghost';
+        return React.createElement('button',{className:cls,style,onClick},children);
+      }
+      function Link({to,children,style}){ return React.createElement('a',{href:'#'+to,style},children); }
+      function NavBar(){
+        return React.createElement('div',{className:'nav'},
+          Link({to:'/', children:React.createElement('strong',null,'Visual Craft')}),
+          React.createElement('div',{style:{marginLeft:'auto',display:'flex',gap:'12px'}},
+            Link({to:'/book', children:'Book'}),
+            Link({to:'/download', children:'Download'})
+          )
+        );
+      }
+      function Section({title,children}){
+        return React.createElement('div',{className:'container'},
+          React.createElement('h2',null,title),
+          React.createElement(Card,{style:{background:'#fff',border:'1px solid #e5e5e5'}},children)
+        );
+      }
+
+      const steps = ['Type','Package','Address','Time','Review'];
+      const listingTypes = [
+        { key:'residential', label:'Residential Listing', img:'/images/residential.jpg' },
+        { key:'land',        label:'Land Listing',        img:'/images/land.jpg' },
+        { key:'commercial',  label:'Commercial Listing',  img:'/images/commercial.jpg' },
+      ];
+      const packages = [
+        { key:'silver',   label:'Silver Package',   minutes:60,  desc:'Professional photography of interior and exterior of property.' },
+        { key:'gold',     label:'Gold Package',     minutes:90,  desc:'Professional photography of interior and exterior of property, and a Video Walkthrough Tour.' },
+        { key:'platinum', label:'Platinum Package', minutes:120, desc:'Professional photography of interior and exterior of property. A Video Walkthrough Tour, Drone Video and Photography, as well as floor plan illustrations.' },
+      ];
+
+      function Stepper({current}){
+        const pills = steps.map((s,i)=>React.createElement('div',{
+          key:s,
+          style:{
+            padding:'8px 12px',borderRadius:'999px',border:'1px solid #e5e5e5',
+            background:i===current?'#111':i<current?'#4d4d4d':'#fff',
+            color:(i===current||i<current)?'#fff':'#111'
+          }
+        },s));
+        return React.createElement('div',{style:{display:'flex',gap:'12px',justifyContent:'center',margin:'16px auto 8px',maxWidth:'720px'}},pills);
+      }
+
+      function Splash(){
+        return React.createElement('div',{className:'splash-bg'},
+          React.createElement('div',{className:'center-card'},
+            React.createElement(Card,null,
+              React.createElement('h1',null,'Visual Craft Photography'),
+              React.createElement('p',null,'Sign in or create an account'),
+              React.createElement('div',{className:'grid'},
+                Button({variant:'dark', children:'Log in'}),
+                Button({variant:'mid', children:'Create account'})
+              ),
+              React.createElement('div',{style:{marginTop:'8px',textAlign:'center'}},
+                Link({to:'/download', children:'Share'})
+              )
+            )
+          )
+        );
+      }
+
+      function BookingFlow(){
+        const [step,setStep] = React.useState(0);
+        const [form,setForm] = React.useState({ listingType:null, pkg:null, place:null, slot:null });
+        const [query,setQuery] = React.useState('');
+        const mockPlaces = React.useMemo(()=>[
+          { label:'4718 Lake Park Dr. Unit #2 Johnson City, TN 37615', lat:36.3671, lng:-82.3709 },
+          { label:'123 Main St, Asheville, NC', lat:35.5951, lng:-82.5515 }
+        ],[]);
+        const [results,setResults] = React.useState(mockPlaces);
+
+        // fallback text filter if Places didn't run yet
+        React.useEffect(()=>{
+          if (!window.__placeSelection__) {
+            setResults(mockPlaces.filter(p => p.label.toLowerCase().includes(query.toLowerCase())));
+          }
+        },[query,mockPlaces]);
+
+        const [slots,setSlots] = React.useState({ list:[], duration:60 });
+        React.useEffect(()=>{
+          (async()=>{
+            if(!form.pkg) return;
+            try{
+              const r = await fetch(API + '/api/availability',{
+                method:'POST',headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({
+                  pkg: form.pkg.label, days: 14,
+                  address: window.__placeSelection__?.label || form.place?.label || '',
+                  lat: window.__placeSelection__?.lat ?? form.place?.lat,
+                  lng: window.__placeSelection__?.lng ?? form.place?.lng
+                })
+              });
+              const j = await r.json();
+              setSlots({ list: j.slots || [], duration: j.durationMin || (form.pkg?.minutes||60) });
+            }catch{
+              setSlots({ list:[], duration: form.pkg?.minutes || 60 });
+            }
+          })();
+        },[form.pkg, form.place]);
+
+        function TypeStep(){
+          const tiles = listingTypes.map(t=>React.createElement('button',{
+            key:t.key,onClick:()=>{ setForm(f=>({...f,listingType:t.key})); setStep(1); },className:'tile'
+          },
+            React.createElement('img',{src:t.img,alt:t.label}),
+            React.createElement('h3',null,t.label)
+          ));
+          return Section({title:'Choose a Listing Type',children:React.createElement('div',{className:'grid'},tiles)});
+        }
+
+        function PackageStep(){
+          const cards = packages.map(p=>React.createElement('button',{
+            key:p.key,onClick:()=>{ setForm(f=>({...f,pkg:p})); setStep(2); },
+            style:{textAlign:'left',padding:'16px',borderRadius:'12px',border:'1px solid #e5e5e5',background:'#fff'}
+          },
+            React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}},
+              React.createElement('div',null,
+                React.createElement('div',{style:{fontSize:'18px'}},p.label),
+                React.createElement('div',{style:{color:'#4d4d4d',marginTop:'4px'}},p.desc)
+              ),
+              React.createElement('div',{style:{fontSize:'14px',color:'#4d4d4d'}}, p.minutes + ' min')
+            )
+          ));
+          return Section({title:'Select a Package',children:React.createElement('div',{className:'grid'},cards)});
+        }
+
+        function AddressStep(){
+          const items = (results.length?results:[window.__placeSelection__]).filter(Boolean).map(r=>React.createElement('button',{
+            key:r.label,onClick:()=>{ 
+              const gp = window.__placeSelection__; 
+              setForm(f=>({...f,place: gp || r})); 
+              setStep(3); 
+            },
+            style:{textAlign:'left',padding:'12px',borderRadius:'12px',border:'1px solid #e5e5e5',background:'#fff'}
+          },r.label));
+          return Section({
+            title:'Property Address',
+            children:React.createElement('div',{className:'grid',style:{gap:'16px'}},
+              React.createElement('input',{id:'addr-input',placeholder:'Search address…',value:query,onChange:e=>setQuery(e.target.value),
+                style:{padding:'14px',borderRadius:'12px',border:'1px solid #e5e5e5'}}),
+              React.createElement('div',{className:'grid'},items)
+            )
+          });
+        }
+
+        function TimeStep(){
+          if (slots.list.length===0){
+            return Section({title:'Select a Time',children:React.createElement('div',{style:{color:'#4d4d4d'}},'No available times (try another day).')});
+          }
+          const btns = slots.list.map(iso=>{
+            const label = new Date(iso).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+            return React.createElement('button',{
+              key:iso,onClick:()=>{ setForm(f=>({...f,slot:{startISO:iso}})); setStep(4); },
+              style:{textAlign:'left',padding:'14px',borderRadius:'12px',border:'1px solid #e5e5e5',background:'#fff',display:'flex',justifyContent:'space-between'}
+            },
+              React.createElement('span',null,label),
+              React.createElement('span',{style:{color:'#4d4d4d'}}, slots.duration + ' min')
+            );
+          });
+          return Section({title:'Select a Time',children:React.createElement('div',{className:'grid'},btns)});
+        }
+
+        function ReviewStep(){
+          const typeLabel = (listingTypes.find(t=>t.key===form.listingType)||{}).label || '';
+          return Section({title:'Review & Confirm',children:
+            React.createElement('div',{className:'grid'},
+              React.createElement('div',null,React.createElement('strong',null,'Listing Type: '),typeLabel),
+              React.createElement('div',null,React.createElement('strong',null,'Package: '),form.pkg?.label||''),
+              React.createElement('div',null,React.createElement('strong',null,'Address: '),window.__placeSelection__?.label || form.place?.label || ''),
+              React.createElement('div',null,React.createElement('strong',null,'Date & Time: '),new Date(form.slot?.startISO||Date.now()).toLocaleString()),
+              React.createElement('div',{style:{display:'flex',gap:'12px',marginTop:'8px'}},
+                Button({variant:'dark',onClick:async()=>{
+                  const r = await fetch(API + '/api/book',{
+                    method:'POST',headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                      listingType:typeLabel,pkg:form.pkg?.label,
+                      address: window.__placeSelection__?.label || form.place?.label || '',
+                      lat: window.__placeSelection__?.lat ?? form.place?.lat,
+                      lng: window.__placeSelection__?.lng ?? form.place?.lng,
+                      startISO: form.slot?.startISO,
+                      name:'Client',email:'client@example.com',phone:'555-555-5555',notes:''
+                    })
+                  });
+                  const j = await r.json();
+                  if (j.ok && j.code) location.hash = '/confirm/' + j.code;
+                  else alert('Booking failed');
+                }},'Confirm Appointment'),
+                Button({variant:'mid',onClick:()=>setStep(3)},'Back')
+              )
+            )
+          });
+        }
+
+        const [route] = useHashRoute();
+        let screen;
+        if (route === '/' || route === '')       screen = React.createElement(Splash);
+        else if (route.startsWith('/book'))      screen = React.createElement(BookingFlow);
+        else if (route.startsWith('/confirm/'))  screen = ConfirmPage();
+        else if (route.startsWith('/download'))  screen = DownloadPage();
+        else                                     screen = Section({title:'Not found',children:React.createElement('div',null,'Page not found')});
+
+        function ConfirmPage(){
+          const code = (location.hash.split('/').pop()||'').replace(/^#+/,'');
+          return Section({title:'Appointment Confirmed',children:
+            React.createElement('div',{style:{textAlign:'center'}},
+              React.createElement('div',{style:{fontSize:'28px',marginBottom:'8px'}},'Confirmation #'),
+              React.createElement('div',{style:{fontSize:'22px',marginBottom:'16px'}},code),
+              React.createElement('div',{style:{color:'#4d4d4d',margin:'0 auto 16px',maxWidth:'560px',lineHeight:1.35}},
+                'A confirmation email with an .ics invite will be sent. It includes a one-tap Reschedule link.'),
+              React.createElement('div',{style:{display:'flex',justifyContent:'center',gap:'12px',flexWrap:'wrap',maxWidth:'560px',margin:'0 auto'}},
+                Button({variant:'mid',style:{minWidth:'260px'}},'Add to Calendar (ICS)'),
+                Button({variant:'dark',style:{minWidth:'260px'}},'Manage Booking')
+              )
+            )
+          });
+        }
+
+        function DownloadPage(){
+          return Section({title:'Download / Install',children:
+            React.createElement('div',{className:'grid'},
+              React.createElement('div',null,React.createElement('strong',null,'PWA (Web App): '),'On iPhone Safari: Share → Add to Home Screen. On Android Chrome: ⋮ → Install App.'),
+              React.createElement('div',null,React.createElement('strong',null,'App Icon: '),'Replace icons under /icons.'),
+              React.createElement('div',{style:{display:'flex',gap:'12px',alignItems:'center',flexWrap:'wrap'}},
+                React.createElement('img',{alt:'Icon 192',src:'/icons/icon-192.png',style:{width:'64px',height:'64px',borderRadius:'14px',border:'1px solid #e5e5e5'}}),
+                React.createElement('img',{alt:'Icon 512',src:'/icons/icon-512.png',style:{width:'72px',height:'72px',borderRadius:'16px',border:'1px solid #e5e5e5'}})
+              ),
+              Link({to:'/', children:'Back to login'})
+            )
+          });
+        }
+
+        function App(){
+          return React.createElement(React.Fragment,null,
+            React.createElement(NavBar),
+            screen
+          );
+        }
+
+        // Diagnostics line (React present? image path ok?)
+        document.getElementById('diag').innerHTML =
+          `<b>React:</b> ${window.React?'<span class="ok">OK</span>':'<span class="bad">MISSING</span>'} &nbsp;`+
+          `<b>ReactDOM:</b> ${window.ReactDOM?'<span class="ok">OK</span>':'<span class="bad">MISSING</span>'} &nbsp;`+
+          `<b>Router:</b> <span class="ok">Built-in</span> &nbsp;`+
+          `<b>Image:</b> <a href="/images/splash-bg.jpg" target="_blank">open</a> &nbsp;`+
+          `<b>Health:</b> <a href="/api/health" target="_blank">check</a>`;
+
+        ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+      </script>
+
+    <!-- Service worker (optional) -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(()=>{});
+        });
+      }
+    </script>
+  </body>
+</html>
