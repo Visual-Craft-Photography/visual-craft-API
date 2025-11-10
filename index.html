@@ -19,6 +19,7 @@
     .tile{display:flex;align-items:center;gap:12px;text-align:left;padding:12px;border-radius:12px;border:1px solid #e5e5e5;background:#fff}
     .tile img{width:72px;height:48px;object-fit:cover;border-radius:8px;border:1px solid #eee}
     .center-card{position:absolute;top:44%;left:50%;transform:translate(-50%,-50%);width:min(92vw,700px);padding:8px}
+    /* THIS loads your mountain */
     .splash-bg{min-height:100vh;background-image:url('/images/splash-bg.jpg');background-size:cover;background-position:center;position:relative}
   </style>
 
@@ -26,7 +27,7 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-  <!-- Google Places (optional). If you don't have a key yet, leave as-is; it will be ignored. -->
+  <!-- Optional: Google Places; leave key as-is for now -->
   <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_MAPS_KEY&libraries=places&callback=initPlaces" async defer></script>
 </head>
 <body>
@@ -97,7 +98,6 @@
       ],[]);
       const [results,setResults]=React.useState(mockPlaces);
 
-      // simple fallback text filter if Places not active
       React.useEffect(()=>{ if(!window.__placeSelection__){ setResults(mockPlaces.filter(p=>p.label.toLowerCase().includes(query.toLowerCase())));} },[query,mockPlaces]);
 
       const [slots,setSlots]=React.useState({ list:[], duration:60 });
@@ -193,38 +193,33 @@
         });
       }
 
-      function BookingRouter(){
+      function BookingFlowUI(){
         const [step,setStep]=React.useState(0);
-        // reuse the child steps above
+        const [form,setForm]=React.useState({ listingType:null, pkg:null, place:null, slot:null });
+        const Steps=[
+          ()=>TypeStep(),
+          ()=>PackageStep(),
+          ()=>AddressStep(),
+          ()=>TimeStep(),
+          ()=>ReviewStep()
+        ];
         return React.createElement(React.Fragment,null,
-          React.createElement(Section,{title:'Booking'}, React.createElement('div',null)),
-          (function(){
-            // steps redefined inside to capture setStep/form; actual step components are defined above
-            return React.createElement(React.Fragment,null);
-          })()
+          React.createElement('div',{className:'container'},React.createElement('div',null)),
+          Steps[step]()
         );
-      }
-
-      // Real booking flow with steps
-      function BookingFlowWrapper(){
-        const [step,setStep]=React.useState(0);
-        const [form,setForm]=React.useState(null); // not used here; left for clarity
-        const Steps=[Splash, ()=>{}, ()=>{}, ()=>{}, ()=>{}]; // unused
-        // Inline the BookingFlow defined earlier:
-        return React.createElement(BookingFlow);
       }
 
       const [route] = useHashRoute();
       let screen;
       if (route === '/' || route === '')       screen = React.createElement(Splash);
-      else if (route.startsWith('/book'))      screen = React.createElement(BookingFlow);
+      else if (route.startsWith('/book'))      screen = React.createElement(BookingFlowUI);
       else if (route.startsWith('/confirm/'))  screen = React.createElement(ConfirmPage);
       else if (route.startsWith('/download'))  screen = React.createElement(DownloadPage);
       else                                     screen = Section({title:'Not found',children:React.createElement('div',null,'Page not found')});
 
       function App(){ return React.createElement(React.Fragment,null, React.createElement(NavBar), screen ); }
 
-      // Diagnostics (shows if image loads)
+      // Diagnostics: show if image actually loads
       (function(){
         const d=document.getElementById('diag');
         function badge(){ d.innerHTML =
